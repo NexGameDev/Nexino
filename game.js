@@ -1,218 +1,123 @@
-// ===== DOM REFERENCES =====
 const playerHandEl = document.getElementById("player-hand");
 const computerHandEl = document.getElementById("computer-hand");
 const boardEl = document.getElementById("domino-line");
 const statusEl = document.getElementById("status");
-const rotateBtn = document.getElementById("rotate-btn");
 
-// ===== GAME STATE =====
-let deck = [];
-let playerHand = [];
-let computerHand = [];
-let board = [];
-let currentPlayer = "player";
-let selectedTile = null;
-let rotation = "horizontal";
+let deck=[], player=[], computer=[], board=[];
+let turn="player";
 
-// ===== INIT =====
-initGame();
+init();
 
-function initGame() {
-  deck = generateDeck();
+function init(){
+  deck=[];
+  for(let i=0;i<=6;i++)for(let j=i;j<=6;j++)deck.push({a:i,b:j});
   shuffle(deck);
-
-  playerHand = deck.splice(0, 7);
-  computerHand = deck.splice(0, 7);
-
-  renderHands();
+  player=deck.splice(0,7);
+  computer=deck.splice(0,7);
+  render();
   updatePlayable();
-  statusEl.textContent = "Your turn";
 }
 
-// ===== DECK =====
-function generateDeck() {
-  let d = [];
-  for (let i = 0; i <= 6; i++) {
-    for (let j = i; j <= 6; j++) {
-      d.push({ a: i, b: j });
-    }
-  }
-  return d;
-}
-
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
   }
 }
 
-// ===== RENDER =====
-function renderHands() {
-  playerHandEl.innerHTML = "";
-  computerHandEl.innerHTML = "";
-
-  playerHand.forEach((tile, i) => {
-    const el = createDomino(tile, true);
-    el.onclick = () => selectTile(i);
-    playerHandEl.appendChild(el);
-  });
-
-  computerHand.forEach(() => {
-    const back = document.createElement("div");
-    back.className = "computer-tile";
-    computerHandEl.appendChild(back);
-  });
+function createPips(n){
+  const p=document.createElement("div");
+  p.className="pips";
+  for(let i=0;i<n;i++){
+    const dot=document.createElement("div");
+    dot.className="pip";
+    p.appendChild(dot);
+  }
+  return p;
 }
 
-function createDomino(tile, isPlayer) {
-  const d = document.createElement("div");
-  d.className = `domino horizontal draw tile-dark`;
-
-  const h1 = document.createElement("div");
-  const h2 = document.createElement("div");
-  h1.className = h2.className = "domino-half";
-  h1.textContent = tile.a;
-  h2.textContent = tile.b;
-
-  d.appendChild(h1);
-  d.appendChild(h2);
-
-  if (!isPlayer) d.classList.add("computer");
-
+function createDomino(t){
+  const d=document.createElement("div");
+  d.className="domino dark";
+  const h1=document.createElement("div");
+  const h2=document.createElement("div");
+  h1.className=h2.className="half";
+  h1.appendChild(createPips(t.a));
+  h2.appendChild(createPips(t.b));
+  d.append(h1,h2);
   return d;
 }
 
-// ===== SELECT & ROTATE =====
-function selectTile(index) {
-  if (currentPlayer !== "player") return;
-  selectedTile = index;
+function render(){
+  playerHandEl.innerHTML="";
+  computerHandEl.innerHTML="";
+  player.forEach((t,i)=>{
+    const d=createDomino(t);
+    d.onclick=()=>play(i);
+    playerHandEl.appendChild(d);
+  });
+  computer.forEach(()=>computerHandEl.appendChild(
+    Object.assign(document.createElement("div"),{className:"back"})
+  ));
 }
 
-rotateBtn.onclick = () => {
-  rotation = rotation === "horizontal" ? "vertical" : "horizontal";
-  document.querySelectorAll(".domino").forEach(d => {
-    d.classList.toggle("vertical");
-    d.classList.toggle("horizontal");
-  });
-};
+function ends(){
+  if(!board.length)return null;
+  return {l:board[0].a,r:board[board.length-1].b};
+}
 
-// ===== PLAYABLE LOGIC =====
-function updatePlayable() {
-  const ends = getBoardEnds();
-
-  document.querySelectorAll("#player-hand .domino").forEach((el, i) => {
-    const tile = playerHand[i];
-    const playable =
-      board.length === 0 ||
-      tile.a === ends.left ||
-      tile.b === ends.left ||
-      tile.a === ends.right ||
-      tile.b === ends.right;
-
-    el.classList.remove("tile-dark", "tile-playable");
-
-    if (playable) {
-      el.classList.add("tile-light", "tile-playable");
-    } else {
-      el.classList.add("tile-dark");
-    }
+function updatePlayable(){
+  const e=ends();
+  document.querySelectorAll("#player-hand .domino").forEach((d,i)=>{
+    d.classList.remove("playable","dark");
+    const t=player[i];
+    let ok=!e||t.a===e.l||t.b===e.l||t.a===e.r||t.b===e.r;
+    if(ok)d.classList.add("playable");
+    else d.classList.add("dark");
   });
 }
 
-// ===== BOARD =====
-function getBoardEnds() {
-  if (board.length === 0) return {};
-  return {
-    left: board[0].a,
-    right: board[board.length - 1].b
-  };
+function play(i){
+  if(turn!=="player")return;
+  const t=player[i];
+  const e=ends();
+  if(e && !(t.a===e.l||t.b===e.l||t.a===e.r||t.b===e.r))return;
+  place(t);
+  player.splice(i,1);
+  render();
+  checkWin();
+  turn="computer";
+  setTimeout(aiTurn,800);
 }
 
-function placeTile(tile, fromPlayer = true) {
-  const d = createDomino(tile, fromPlayer);
+function place(t){
+  const d=createDomino(t);
   d.classList.add("placing");
   boardEl.appendChild(d);
-  board.push(tile);
+  board.push(t);
 }
 
-// ===== PLAYER TURN =====
-playerHandEl.onclick = () => {
-  if (selectedTile == null) return;
-
-  const tile = playerHand[selectedTile];
-  const ends = getBoardEnds();
-
-  const canPlay =
-    board.length === 0 ||
-    tile.a === ends.left ||
-    tile.b === ends.left ||
-    tile.a === ends.right ||
-    tile.b === ends.right;
-
-  if (!canPlay) return;
-
-  placeTile(tile);
-  playerHand.splice(selectedTile, 1);
-  selectedTile = null;
-
-  renderHands();
-  checkWin("player");
-  nextTurn();
-};
-
-// ===== COMPUTER AI =====
-function computerTurn() {
-  statusEl.textContent = "Computer’s turn";
-
-  setTimeout(() => {
-    let played = false;
-    const ends = getBoardEnds();
-
-    for (let i = 0; i < computerHand.length; i++) {
-      const t = computerHand[i];
-      if (
-        board.length === 0 ||
-        t.a === ends.left ||
-        t.b === ends.left ||
-        t.a === ends.right ||
-        t.b === ends.right
-      ) {
-        placeTile(t, false);
-        computerHand.splice(i, 1);
-        played = true;
-        break;
-      }
-    }
-
-    if (!played) {
-      if (deck.length > 0) {
-        statusEl.textContent = "Giving tile to Computer";
-        computerHand.push(deck.pop());
-      }
-    }
-
-    renderHands();
-    checkWin("computer");
-    currentPlayer = "player";
-    statusEl.textContent = "Your turn";
-    updatePlayable();
-  }, 900);
-}
-
-// ===== TURN HANDLING =====
-function nextTurn() {
-  currentPlayer = "computer";
-  computerTurn();
+function aiTurn(){
+  statusEl.textContent="Computer’s turn";
+  const e=ends();
+  let idx=computer.findIndex(t=>!e||t.a===e.l||t.b===e.l||t.a===e.r||t.b===e.r);
+  if(idx===-1 && deck.length){
+    computer.push(deck.pop());
+    aiTurn();
+    return;
+  }
+  if(idx>-1){
+    place(computer[idx]);
+    computer.splice(idx,1);
+  }
+  render();
+  checkWin();
+  turn="player";
+  statusEl.textContent="Your turn";
   updatePlayable();
 }
 
-// ===== WIN =====
-function checkWin(who) {
-  if (who === "player" && playerHand.length === 0) {
-    statusEl.textContent = "You Win!";
-  }
-  if (who === "computer" && computerHand.length === 0) {
-    statusEl.textContent = "Computer Wins!";
-  }
+function checkWin(){
+  if(player.length===0)statusEl.textContent="You Win!";
+  if(computer.length===0)statusEl.textContent="Computer Wins!";
 }
