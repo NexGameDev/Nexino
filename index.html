@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Domino Mobile</title>
+
+<style>
+/* =========================
+   RESET & BASE
+========================= */
+*{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+  user-select:none;
+}
+
+body{
+  background:#0f172a;
+  font-family:Arial, Helvetica, sans-serif;
+  color:#fff;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+
+/* =========================
+   GAME CONTAINER
+========================= */
+#game{
+  width:100%;
+  max-width:420px;
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  padding:10px;
+  gap:10px;
+}
+
+/* =========================
+   STATUS BAR
+========================= */
+#status{
+  text-align:center;
+  font-weight:bold;
+  padding:8px;
+  background:#020617;
+  border-radius:8px;
+  transition:all .3s ease;
+}
+
+/* =========================
+   OPPONENT AREA
+========================= */
+#opponent{
+  display:flex;
+  justify-content:center;
+  gap:4px;
+  padding:10px;
+}
+
+.opponent-tile{
+  width:20px;
+  height:40px;
+  background:#e5e7eb;
+  border-radius:6px;
+  opacity:.8;
+}
+
+/* =========================
+   BOARD
+========================= */
+#board{
+  flex:1;
+  background:#020617;
+  border-radius:12px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  padding:10px;
+  overflow:hidden;
+}
+
+/* tempat domino diletakkan */
+#chain{
+  display:flex;
+  gap:6px;
+  transition:transform .4s ease;
+}
+
+/* =========================
+   PLAYER AREA
+========================= */
+#player{
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  padding:10px;
+  flex-wrap:wrap;
+}
+
+/* =========================
+   DOMINO TILE
+========================= */
+.domino{
+  width:48px;
+  height:48px;
+  background:#111827;
+  border-radius:10px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  gap:4px;
+  border:2px solid #1f2933;
+  transition:
+    transform .3s ease,
+    background .3s ease,
+    opacity .3s ease;
+}
+
+/* garis tengah */
+.domino::after{
+  content:"";
+  width:80%;
+  height:2px;
+  background:#334155;
+}
+
+/* angka */
+.dot{
+  font-size:12px;
+}
+
+/* bisa dipasang */
+.domino.can-play{
+  background:#1e293b;
+  border-color:#22c55e;
+  transform:translateY(-6px);
+}
+
+/* tidak bisa */
+.domino.disabled{
+  opacity:.4;
+}
+
+/* animasi rotate */
+.domino.rotated{
+  transform:rotate(90deg);
+}
+
+/* =========================
+   CONTROLS
+========================= */
+#controls{
+  display:flex;
+  gap:10px;
+}
+
+button{
+  flex:1;
+  padding:10px;
+  background:#2563eb;
+  border:none;
+  border-radius:10px;
+  color:white;
+  font-weight:bold;
+  transition:
+    transform .2s ease,
+    background .2s ease;
+}
+
+button:active{
+  transform:scale(.95);
+  background:#1e40af;
+}
+</style>
+</head>
+
+<body>
+
+<div id="game">
+
+  <!-- STATUS -->
+  <div id="status">Your turn</div>
+
+  <!-- OPPONENT -->
+  <div id="opponent">
+    <!-- domino lawan (tertutup) -->
+  </div>
+
+  <!-- BOARD -->
+  <div id="board">
+    <div id="chain">
+      <!-- domino yang sudah dimainkan -->
+    </div>
+  </div>
+
+  <!-- PLAYER -->
+  <div id="player">
+    <!-- domino pemain -->
+  </div>
+
+  <!-- CONTROLS -->
+  <div id="controls">
+    <button id="rotateBtn">Rotate</button>
+    <button id="drawBtn">Draw</button>
+  </div>
+
+</div>
+
+<!-- GAME LOGIC -->
+<script src="game.js"></script>
+</body>
+  </html>
