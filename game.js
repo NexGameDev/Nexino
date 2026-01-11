@@ -1,144 +1,170 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Domino Final</title>
+const statusText = document.getElementById("status");
+const playerHandEl = document.getElementById("player-hand");
+const computerHandEl = document.getElementById("computer-hand");
+const chainEl = document.getElementById("chain");
+const rotateBtn = document.getElementById("rotateBtn");
+const drawBtn = document.getElementById("drawBtn");
 
-<style>
-*{box-sizing:border-box}
-body{
-  margin:0;
-  background:#0b0b0b;
-  color:#fff;
-  font-family:Arial,Helvetica,sans-serif;
-  display:flex;
-  flex-direction:column;
-  height:100vh;
+let stock = [];
+let playerHand = [];
+let computerHand = [];
+let chain = [];
+let selectedTile = null;
+let playerTurn = true;
+
+// pip pattern GRID 2x3
+const pipMap = {
+  0:[],
+  1:[4],
+  2:[2,6],
+  3:[2,4,6],
+  4:[1,3,5,7],
+  5:[1,3,4,5,7],
+  6:[1,3,5,7,2,6]
+};
+
+function createDomino(a,b){
+  return {a,b,rotated:false};
 }
 
-#status{
-  text-align:center;
-  padding:12px;
-  font-size:18px;
+function createSet(){
+  let set=[];
+  for(let i=0;i<=6;i++){
+    for(let j=i;j<=6;j++){
+      set.push(createDomino(i,j));
+    }
+  }
+  return set.sort(()=>Math.random()-0.5);
 }
 
-#board{
-  flex:1;
-  display:flex;
-  justify-content:center;
-  align-items:center;
+function renderFace(value){
+  const face=document.createElement("div");
+  face.className="face";
+  for(let i=1;i<=6;i++){
+    const d=document.createElement("div");
+    if(pipMap[value].includes(i)){
+      d.className="pip";
+    }
+    face.appendChild(d);
+  }
+  return face;
 }
 
-#chain{
-  display:flex;
-  gap:6px;
-  transition:0.3s;
+function renderDomino(domino,clickable=false){
+  const d=document.createElement("div");
+  d.className="domino";
+
+  let top=domino.rotated?domino.b:domino.a;
+  let bottom=domino.rotated?domino.a:domino.b;
+
+  d.appendChild(renderFace(top));
+  d.appendChild(renderFace(bottom));
+
+  if(clickable){
+    if(canPlay(domino)) d.classList.add("playable");
+    d.onclick=()=>{
+      if(!playerTurn || !canPlay(domino))return;
+      document.querySelectorAll(".selected").forEach(x=>x.classList.remove("selected"));
+      d.classList.add("selected");
+      selectedTile=domino;
+    };
+  }
+  return d;
 }
 
-.hand{
-  display:flex;
-  gap:8px;
-  padding:10px;
-  overflow-x:auto;
+function render(){
+  playerHandEl.innerHTML="";
+  computerHandEl.innerHTML="";
+  chainEl.innerHTML="";
+
+  computerHand.forEach(()=> {
+    const back=document.createElement("div");
+    back.className="back";
+    computerHandEl.appendChild(back);
+  });
+
+  chain.forEach(dom=>{
+    const el=renderDomino(dom);
+    el.classList.add("horizontal");
+    chainEl.appendChild(el);
+  });
+
+  playerHand.forEach(dom=>{
+    playerHandEl.appendChild(renderDomino(dom,true));
+  });
+
+  drawBtn.disabled = hasMove(playerHand);
 }
 
-#computer-hand{
-  justify-content:center;
+function canPlay(dom){
+  if(chain.length===0) return true;
+  const left=chain[0].a;
+  const right=chain[chain.length-1].b;
+  return dom.a===left||dom.b===left||dom.a===right||dom.b===right;
 }
 
-#player-hand{
-  justify-content:flex-start;
+function hasMove(hand){
+  return hand.some(canPlay);
 }
 
-.domino{
-  width:48px;
-  height:96px;
-  background:#e6e6e6;
-  border-radius:10px;
-  display:flex;
-  flex-direction:column;
-  justify-content:space-between;
-  padding:6px;
-  transition:0.25s;
+rotateBtn.onclick=()=>{
+  if(!selectedTile)return;
+  selectedTile.rotated=!selectedTile.rotated;
+  render();
+};
+
+drawBtn.onclick=()=>{
+  if(stock.length===0)return;
+  playerHand.push(stock.pop());
+  render();
+};
+
+function play(dom,fromPlayer=true){
+  if(chain.length===0){
+    chain.push(dom);
+  }else{
+    const left=chain[0].a;
+    const right=chain[chain.length-1].b;
+
+    let a=dom.rotated?dom.b:dom.a;
+    let b=dom.rotated?dom.a:dom.b;
+
+    if(b===left) chain.unshift(createDomino(a,b));
+    else if(a===right) chain.push(createDomino(a,b));
+  }
+  if(fromPlayer){
+    playerHand.splice(playerHand.indexOf(dom),1);
+    selectedTile=null;
+    playerTurn=false;
+    statusText.textContent="Computer’s turn";
+    setTimeout(computerMove,800);
+  }else{
+    computerHand.splice(computerHand.indexOf(dom),1);
+    playerTurn=true;
+    statusText.textContent="Your turn";
+  }
+  render();
 }
 
-.domino.horizontal{
-  flex-direction:row;
-  width:96px;
-  height:48px;
+function computerMove(){
+  let move=computerHand.find(canPlay);
+  if(move){
+    play(move,false);
+  }else if(stock.length){
+    computerHand.push(stock.pop());
+    setTimeout(computerMove,600);
+  }
 }
 
-.face{
-  flex:1;
-  display:grid;
-  grid-template-columns:repeat(2,1fr);
-  grid-template-rows:repeat(3,1fr);
-  gap:3px;
+function start(){
+  stock=createSet();
+  playerHand=stock.splice(0,7);
+  computerHand=stock.splice(0,7);
+  render();
 }
 
-.pip{
-  width:6px;
-  height:6px;
-  background:#000;
-  border-radius:50%;
-  align-self:center;
-  justify-self:center;
-}
+start();
 
-.back{
-  background:#fff;
-  border-radius:10px;
-  width:48px;
-  height:96px;
-}
-
-.playable{
-  box-shadow:0 0 12px #00ff88;
-}
-
-.selected{
-  transform:translateY(-10px);
-}
-
-#controls{
-  display:flex;
-  justify-content:center;
-  gap:12px;
-  padding:10px;
-}
-
-button{
-  padding:10px 18px;
-  font-size:16px;
-  border:none;
-  border-radius:8px;
-  background:#1e88ff;
-  color:#fff;
-}
-button:disabled{
-  opacity:0.4;
-}
-</style>
-</head>
-
-<body>
-
-<div id="status">Your turn</div>
-
-<div id="computer-hand" class="hand"></div>
-
-<div id="board">
-  <div id="chain"></div>
-</div>
-
-<div id="controls">
-  <button id="rotateBtn">Rotate</button>
-  <button id="drawBtn">Draw Tile</button>
-</div>
-
-<div id="player-hand" class="hand"></div>
-
-<script src="game.js"></script>
-</body>
-</html>
+playerHandEl.onclick=()=>{
+  if(selectedTile) play(selectedTile,true);
+};
