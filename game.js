@@ -1,170 +1,181 @@
-const statusText = document.getElementById("status");
-const playerHandEl = document.getElementById("player-hand");
-const computerHandEl = document.getElementById("computer-hand");
-const chainEl = document.getElementById("chain");
-const rotateBtn = document.getElementById("rotateBtn");
-const drawBtn = document.getElementById("drawBtn");
+/* ========= DATA ========= */
+const board = document.getElementById("board");
+const playerHandEl = document.getElementById("playerHand");
+const computerHandEl = document.getElementById("computerHand");
+const statusEl = document.getElementById("status");
 
 let stock = [];
 let playerHand = [];
 let computerHand = [];
-let chain = [];
-let selectedTile = null;
-let playerTurn = true;
+let boardChain = [];
+let currentTurn = "player";
+let selectedDomino = null;
 
-// pip pattern GRID 2x3
-const pipMap = {
-  0:[],
-  1:[4],
-  2:[2,6],
-  3:[2,4,6],
-  4:[1,3,5,7],
-  5:[1,3,4,5,7],
-  6:[1,3,5,7,2,6]
-};
+/* BOARD PATH */
+const path = [];
+let pathIndex = 0;
 
-function createDomino(a,b){
-  return {a,b,rotated:false};
-}
+for(let i=0;i<6;i++) path.push({x:60+i*36,y:160,dir:"right"});
+for(let i=1;i<4;i++) path.push({x:60+5*36,y:160+i*36,dir:"down"});
 
-function createSet(){
-  let set=[];
-  for(let i=0;i<=6;i++){
-    for(let j=i;j<=6;j++){
-      set.push(createDomino(i,j));
+/* ========= INIT ========= */
+initStock();
+dealHands();
+renderHands();
+updateValidDomino();
+
+/* ========= FUNCTIONS ========= */
+
+function initStock(){
+  for(let a=0;a<=6;a++){
+    for(let b=a;b<=6;b++){
+      stock.push([a,b]);
     }
   }
-  return set.sort(()=>Math.random()-0.5);
+  stock.sort(()=>Math.random()-0.5);
 }
 
-function renderFace(value){
-  const face=document.createElement("div");
-  face.className="face";
-  for(let i=1;i<=6;i++){
-    const d=document.createElement("div");
-    if(pipMap[value].includes(i)){
-      d.className="pip";
-    }
-    face.appendChild(d);
+function dealHands(){
+  for(let i=0;i<7;i++){
+    playerHand.push(stock.pop());
+    computerHand.push(stock.pop());
   }
-  return face;
 }
 
-function renderDomino(domino,clickable=false){
+function createDomino([a,b], hidden=false){
   const d=document.createElement("div");
-  d.className="domino";
+  d.className="domino hand";
+  d.dataset.a=a;
+  d.dataset.b=b;
+  d.dataset.rot="0";
 
-  let top=domino.rotated?domino.b:domino.a;
-  let bottom=domino.rotated?domino.a:domino.b;
-
-  d.appendChild(renderFace(top));
-  d.appendChild(renderFace(bottom));
-
-  if(clickable){
-    if(canPlay(domino)) d.classList.add("playable");
-    d.onclick=()=>{
-      if(!playerTurn || !canPlay(domino))return;
-      document.querySelectorAll(".selected").forEach(x=>x.classList.remove("selected"));
-      d.classList.add("selected");
-      selectedTile=domino;
-    };
+  if(hidden){
+    d.style.background="#ccc";
+    return d;
   }
+
+  d.appendChild(makeSide(a));
+  d.appendChild(makeSide(b));
   return d;
 }
 
-function render(){
+function makeSide(n){
+  const s=document.createElement("div");
+  s.className="side";
+  for(let i=0;i<n;i++){
+    const dot=document.createElement("div");
+    dot.className="dot";
+    s.appendChild(dot);
+  }
+  return s;
+}
+
+function renderHands(){
   playerHandEl.innerHTML="";
-  computerHandEl.innerHTML="";
-  chainEl.innerHTML="";
-
-  computerHand.forEach(()=> {
-    const back=document.createElement("div");
-    back.className="back";
-    computerHandEl.appendChild(back);
-  });
-
-  chain.forEach(dom=>{
-    const el=renderDomino(dom);
-    el.classList.add("horizontal");
-    chainEl.appendChild(el);
-  });
-
   playerHand.forEach(dom=>{
-    playerHandEl.appendChild(renderDomino(dom,true));
+    const d=createDomino(dom);
+    d.onclick=()=>selectDomino(d);
+    playerHandEl.appendChild(d);
   });
 
-  drawBtn.disabled = hasMove(playerHand);
+  computerHandEl.innerHTML="";
+  computerHand.forEach(()=>computerHandEl.appendChild(createDomino([0,0],true)));
 }
 
-function canPlay(dom){
-  if(chain.length===0) return true;
-  const left=chain[0].a;
-  const right=chain[chain.length-1].b;
-  return dom.a===left||dom.b===left||dom.a===right||dom.b===right;
+function selectDomino(d){
+  if(currentTurn!=="player") return;
+  document.querySelectorAll(".domino").forEach(x=>x.classList.remove("selected"));
+  selectedDomino=d;
+  d.classList.add("selected");
 }
 
-function hasMove(hand){
-  return hand.some(canPlay);
+function updateValidDomino(){
+  document.querySelectorAll(".domino").forEach(d=>d.classList.remove("valid"));
+  if(boardChain.length===0){
+    playerHandEl.querySelectorAll(".domino").forEach(d=>d.classList.add("valid"));
+    return;
+  }
+  const left=boardChain[0][0];
+  const right=boardChain.at(-1)[1];
+
+  playerHandEl.querySelectorAll(".domino").forEach(d=>{
+    const a=+d.dataset.a,b=+d.dataset.b;
+    if(a===left||b===left||a===right||b===right) d.classList.add("valid");
+  });
 }
 
-rotateBtn.onclick=()=>{
-  if(!selectedTile)return;
-  selectedTile.rotated=!selectedTile.rotated;
-  render();
+/* ========= PLACE ========= */
+function placeDomino(domino, values){
+  const pos=path[pathIndex++];
+  domino.classList.remove("hand","valid","selected");
+  domino.classList.add("board");
+
+  board.appendChild(domino);
+
+  domino.style.left=pos.x+"px";
+  domino.style.top=pos.y+"px";
+
+  if(pos.dir==="down") domino.style.transform="rotate(90deg)";
+}
+
+/* ========= ROTATE ========= */
+document.getElementById("rotateBtn").onclick=()=>{
+  if(!selectedDomino) return;
+  selectedDomino.style.transform =
+    selectedDomino.style.transform ? "" : "rotate(180deg)";
+  [selectedDomino.dataset.a,selectedDomino.dataset.b]=
+  [selectedDomino.dataset.b,selectedDomino.dataset.a];
 };
 
-drawBtn.onclick=()=>{
-  if(stock.length===0)return;
+/* ========= DRAW ========= */
+document.getElementById("drawBtn").onclick=()=>{
+  if(currentTurn!=="player"||stock.length===0) return;
   playerHand.push(stock.pop());
-  render();
+  renderHands();
+  updateValidDomino();
 };
 
-function play(dom,fromPlayer=true){
-  if(chain.length===0){
-    chain.push(dom);
-  }else{
-    const left=chain[0].a;
-    const right=chain[chain.length-1].b;
+/* ========= AI ========= */
+function computerTurn(){
+  statusEl.textContent="Computer’s Turn";
+  setTimeout(()=>{
+    const left=boardChain[0]?.[0];
+    const right=boardChain.at(-1)?.[1];
 
-    let a=dom.rotated?dom.b:dom.a;
-    let b=dom.rotated?dom.a:dom.b;
+    let idx=computerHand.findIndex(d=>
+      !boardChain.length || d[0]===left||d[1]===left||d[0]===right||d[1]===right
+    );
 
-    if(b===left) chain.unshift(createDomino(a,b));
-    else if(a===right) chain.push(createDomino(a,b));
-  }
-  if(fromPlayer){
-    playerHand.splice(playerHand.indexOf(dom),1);
-    selectedTile=null;
-    playerTurn=false;
-    statusText.textContent="Computer’s turn";
-    setTimeout(computerMove,800);
-  }else{
-    computerHand.splice(computerHand.indexOf(dom),1);
-    playerTurn=true;
-    statusText.textContent="Your turn";
-  }
-  render();
+    if(idx===-1){
+      if(stock.length){
+        computerHand.push(stock.pop());
+        computerTurn();
+      }
+      return;
+    }
+
+    const dom=computerHand.splice(idx,1)[0];
+    boardChain.push(dom);
+
+    const d=createDomino(dom);
+    placeDomino(d,dom);
+
+    currentTurn="player";
+    statusEl.textContent="Your Turn";
+    renderHands();
+    updateValidDomino();
+  },800);
 }
 
-function computerMove(){
-  let move=computerHand.find(canPlay);
-  if(move){
-    play(move,false);
-  }else if(stock.length){
-    computerHand.push(stock.pop());
-    setTimeout(computerMove,600);
-  }
-}
-
-function start(){
-  stock=createSet();
-  playerHand=stock.splice(0,7);
-  computerHand=stock.splice(0,7);
-  render();
-}
-
-start();
-
+/* ========= PLAYER PLACE ========= */
 playerHandEl.onclick=()=>{
-  if(selectedTile) play(selectedTile,true);
+  if(!selectedDomino||!selectedDomino.classList.contains("valid")) return;
+  const a=+selectedDomino.dataset.a;
+  const b=+selectedDomino.dataset.b;
+  boardChain.push([a,b]);
+  placeDomino(selectedDomino,[a,b]);
+  playerHand=playerHand.filter(d=>!(d[0]==a&&d[1]==b));
+  selectedDomino=null;
+  currentTurn="computer";
+  computerTurn();
 };
