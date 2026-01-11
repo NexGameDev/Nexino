@@ -1,163 +1,144 @@
-const statusEl = document.getElementById("status");
-const boardEl = document.getElementById("board");
-const playerEl = document.getElementById("player");
-const computerEl = document.getElementById("computer");
-const rotateBtn = document.getElementById("rotateBtn");
-const drawBtn = document.getElementById("drawBtn");
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Domino Final</title>
 
-let stock = [];
-let player = [];
-let computer = [];
-let board = [];
-let selected = null;
-let vertical = false;
-
-/* ===== CREATE SET ===== */
-function createSet(){
-  let s=[];
-  for(let i=0;i<=6;i++){
-    for(let j=i;j<=6;j++){
-      s.push({a:i,b:j});
-    }
-  }
-  return s.sort(()=>Math.random()-0.5);
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:#0b0b0b;
+  color:#fff;
+  font-family:Arial,Helvetica,sans-serif;
+  display:flex;
+  flex-direction:column;
+  height:100vh;
 }
 
-/* ===== DOT RENDER ===== */
-function dots(n){
-  let f=document.createDocumentFragment();
-  for(let i=0;i<n;i++){
-    let d=document.createElement("div");
-    d.className="dot";
-    f.appendChild(d);
-  }
-  return f;
+#status{
+  text-align:center;
+  padding:12px;
+  font-size:18px;
 }
 
-/* ===== TILE ===== */
-function tileDom(t){
-  let el=document.createElement("div");
-  el.className="tile";
-  let h1=document.createElement("div");
-  h1.className="half";
-  h1.appendChild(dots(t.a));
-  let h2=document.createElement("div");
-  h2.className="half";
-  h2.appendChild(dots(t.b));
-  let d=document.createElement("div");
-  d.className="divider";
-  el.append(h1,d,h2);
-  return el;
+#board{
+  flex:1;
+  display:flex;
+  justify-content:center;
+  align-items:center;
 }
 
-/* ===== VALID CHECK ===== */
-function valid(t){
-  if(board.length===0) return true;
-  let L=board[0].a;
-  let R=board.at(-1).b;
-  return t.a===L||t.b===L||t.a===R||t.b===R;
+#chain{
+  display:flex;
+  gap:6px;
+  transition:0.3s;
 }
 
-/* ===== RENDER ===== */
-function render(){
-  playerEl.innerHTML="";
-  boardEl.innerHTML="";
-  computerEl.innerHTML="";
-
-  player.forEach((t,i)=>{
-    let el=tileDom(t);
-    if(valid(t)) el.classList.add("valid");
-    if(selected===i) el.classList.add("selected");
-    el.onclick=()=>selected=i;
-    playerEl.appendChild(el);
-  });
-
-  board.forEach(t=>{
-    let el=tileDom(t);
-    boardEl.appendChild(el);
-  });
-
-  for(let i=0;i<computer.length;i++){
-    let b=document.createElement("div");
-    b.className="comp-tile";
-    computerEl.appendChild(b);
-  }
-
-  drawBtn.disabled = player.some(valid);
+.hand{
+  display:flex;
+  gap:8px;
+  padding:10px;
+  overflow-x:auto;
 }
 
-/* ===== PLACE ===== */
-function place(){
-  if(selected===null) return;
-  let t=player[selected];
-  if(!valid(t)) return;
-
-  if(board.length===0){
-    board.push(t);
-  }else{
-    let L=board[0].a;
-    let R=board.at(-1).b;
-    if(t.b===L) board.unshift({a:t.a,b:t.b});
-    else if(t.a===L) board.unshift({a:t.b,b:t.a});
-    else if(t.a===R) board.push({a:t.a,b:t.b});
-    else if(t.b===R) board.push({a:t.b,b:t.a});
-  }
-
-  player.splice(selected,1);
-  selected=null;
-  render();
-  setTimeout(computerTurn,600);
+#computer-hand{
+  justify-content:center;
 }
 
-/* ===== COMPUTER ===== */
-function computerTurn(){
-  statusEl.textContent="Computer's turn";
-  let idx=computer.findIndex(valid);
-  if(idx===-1 && stock.length){
-    computer.push(stock.pop());
-    setTimeout(computerTurn,400);
-    return;
-  }
-  if(idx!==-1){
-    let t=computer[idx];
-    if(board.length===0) board.push(t);
-    else{
-      let L=board[0].a;
-      let R=board.at(-1).b;
-      if(t.b===L) board.unshift({a:t.a,b:t.b});
-      else if(t.a===L) board.unshift({a:t.b,b:t.a});
-      else if(t.a===R) board.push({a:t.a,b:t.b});
-      else board.push({a:t.b,b:t.a});
-    }
-    computer.splice(idx,1);
-  }
-  statusEl.textContent="Your turn";
-  render();
+#player-hand{
+  justify-content:flex-start;
 }
 
-/* ===== BUTTONS ===== */
-rotateBtn.onclick=()=>{
-  if(selected===null) return;
-  let t=player[selected];
-  [t.a,t.b]=[t.b,t.a];
-  render();
-};
-drawBtn.onclick=()=>{
-  if(stock.length){
-    player.push(stock.pop());
-    render();
-  }
-};
-
-/* ===== START ===== */
-function start(){
-  stock=createSet();
-  player=stock.splice(0,7);
-  computer=stock.splice(0,7);
-  board=[];
-  statusEl.textContent="Your turn";
-  render();
+.domino{
+  width:48px;
+  height:96px;
+  background:#e6e6e6;
+  border-radius:10px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  padding:6px;
+  transition:0.25s;
 }
 
-start();
-boardEl.onclick=place;
+.domino.horizontal{
+  flex-direction:row;
+  width:96px;
+  height:48px;
+}
+
+.face{
+  flex:1;
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  grid-template-rows:repeat(3,1fr);
+  gap:3px;
+}
+
+.pip{
+  width:6px;
+  height:6px;
+  background:#000;
+  border-radius:50%;
+  align-self:center;
+  justify-self:center;
+}
+
+.back{
+  background:#fff;
+  border-radius:10px;
+  width:48px;
+  height:96px;
+}
+
+.playable{
+  box-shadow:0 0 12px #00ff88;
+}
+
+.selected{
+  transform:translateY(-10px);
+}
+
+#controls{
+  display:flex;
+  justify-content:center;
+  gap:12px;
+  padding:10px;
+}
+
+button{
+  padding:10px 18px;
+  font-size:16px;
+  border:none;
+  border-radius:8px;
+  background:#1e88ff;
+  color:#fff;
+}
+button:disabled{
+  opacity:0.4;
+}
+</style>
+</head>
+
+<body>
+
+<div id="status">Your turn</div>
+
+<div id="computer-hand" class="hand"></div>
+
+<div id="board">
+  <div id="chain"></div>
+</div>
+
+<div id="controls">
+  <button id="rotateBtn">Rotate</button>
+  <button id="drawBtn">Draw Tile</button>
+</div>
+
+<div id="player-hand" class="hand"></div>
+
+<script src="game.js"></script>
+</body>
+</html>
