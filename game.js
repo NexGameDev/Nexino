@@ -1,181 +1,178 @@
-/* ========= DATA ========= */
-const board = document.getElementById("board");
 const playerHandEl = document.getElementById("playerHand");
 const computerHandEl = document.getElementById("computerHand");
+const chainEl = document.getElementById("chain");
 const statusEl = document.getElementById("status");
+const rotateBtn = document.getElementById("rotateBtn");
+const drawBtn = document.getElementById("drawBtn");
 
 let stock = [];
 let playerHand = [];
 let computerHand = [];
-let boardChain = [];
-let currentTurn = "player";
-let selectedDomino = null;
+let chain = [];
 
-/* BOARD PATH */
-const path = [];
-let pathIndex = 0;
+let selected = null;
+let rotated = false;
+let turn = "player";
 
-for(let i=0;i<6;i++) path.push({x:60+i*36,y:160,dir:"right"});
-for(let i=1;i<4;i++) path.push({x:60+5*36,y:160+i*36,dir:"down"});
+// ---------- DOMINO UTILS ----------
+function createDomino(a, b, hidden = false, small = false) {
+  const d = document.createElement("div");
+  d.className = "domino";
+  if (hidden) d.classList.add("hidden");
+  if (small) d.classList.add("small");
 
-/* ========= INIT ========= */
-initStock();
-dealHands();
-renderHands();
-updateValidDomino();
+  const top = document.createElement("div");
+  top.className = "pips";
+  const bottom = document.createElement("div");
+  bottom.className = "pips";
 
-/* ========= FUNCTIONS ========= */
+  renderPips(top, a);
+  renderPips(bottom, b);
 
-function initStock(){
-  for(let a=0;a<=6;a++){
-    for(let b=a;b<=6;b++){
-      stock.push([a,b]);
-    }
-  }
-  stock.sort(()=>Math.random()-0.5);
+  d.append(top, bottom);
+  d.dataset.a = a;
+  d.dataset.b = b;
+
+  return d;
 }
 
-function dealHands(){
-  for(let i=0;i<7;i++){
+function renderPips(container, count) {
+  container.innerHTML = "";
+  const map = [
+    [], [1], [0,2], [0,1,2], [0,1,2,3], [0,1,2,3,4], [0,1,2,3,4,5]
+  ];
+  map[count].forEach(() => {
+    const p = document.createElement("div");
+    p.className = "pip";
+    container.appendChild(p);
+  });
+}
+
+// ---------- SETUP ----------
+function init() {
+  createStock();
+  deal();
+  render();
+  highlightValid();
+}
+
+function createStock() {
+  for (let i = 0; i <= 6; i++) {
+    for (let j = i; j <= 6; j++) {
+      stock.push([i, j]);
+    }
+  }
+  stock.sort(() => Math.random() - 0.5);
+}
+
+function deal() {
+  for (let i = 0; i < 7; i++) {
     playerHand.push(stock.pop());
     computerHand.push(stock.pop());
   }
 }
 
-function createDomino([a,b], hidden=false){
-  const d=document.createElement("div");
-  d.className="domino hand";
-  d.dataset.a=a;
-  d.dataset.b=b;
-  d.dataset.rot="0";
+// ---------- RENDER ----------
+function render() {
+  playerHandEl.innerHTML = "";
+  computerHandEl.innerHTML = "";
+  chainEl.innerHTML = "";
 
-  if(hidden){
-    d.style.background="#ccc";
-    return d;
-  }
-
-  d.appendChild(makeSide(a));
-  d.appendChild(makeSide(b));
-  return d;
-}
-
-function makeSide(n){
-  const s=document.createElement("div");
-  s.className="side";
-  for(let i=0;i<n;i++){
-    const dot=document.createElement("div");
-    dot.className="dot";
-    s.appendChild(dot);
-  }
-  return s;
-}
-
-function renderHands(){
-  playerHandEl.innerHTML="";
-  playerHand.forEach(dom=>{
-    const d=createDomino(dom);
-    d.onclick=()=>selectDomino(d);
-    playerHandEl.appendChild(d);
+  playerHand.forEach((d, i) => {
+    const dom = createDomino(d[0], d[1]);
+    dom.onclick = () => selectDomino(i);
+    playerHandEl.appendChild(dom);
   });
 
-  computerHandEl.innerHTML="";
-  computerHand.forEach(()=>computerHandEl.appendChild(createDomino([0,0],true)));
-}
+  computerHand.forEach(() => {
+    computerHandEl.appendChild(createDomino(0, 0, true));
+  });
 
-function selectDomino(d){
-  if(currentTurn!=="player") return;
-  document.querySelectorAll(".domino").forEach(x=>x.classList.remove("selected"));
-  selectedDomino=d;
-  d.classList.add("selected");
-}
-
-function updateValidDomino(){
-  document.querySelectorAll(".domino").forEach(d=>d.classList.remove("valid"));
-  if(boardChain.length===0){
-    playerHandEl.querySelectorAll(".domino").forEach(d=>d.classList.add("valid"));
-    return;
-  }
-  const left=boardChain[0][0];
-  const right=boardChain.at(-1)[1];
-
-  playerHandEl.querySelectorAll(".domino").forEach(d=>{
-    const a=+d.dataset.a,b=+d.dataset.b;
-    if(a===left||b===left||a===right||b===right) d.classList.add("valid");
+  chain.forEach(d => {
+    chainEl.appendChild(createDomino(d[0], d[1], false, true));
   });
 }
 
-/* ========= PLACE ========= */
-function placeDomino(domino, values){
-  const pos=path[pathIndex++];
-  domino.classList.remove("hand","valid","selected");
-  domino.classList.add("board");
-
-  board.appendChild(domino);
-
-  domino.style.left=pos.x+"px";
-  domino.style.top=pos.y+"px";
-
-  if(pos.dir==="down") domino.style.transform="rotate(90deg)";
+// ---------- GAME LOGIC ----------
+function selectDomino(i) {
+  if (turn !== "player") return;
+  selected = i;
+  rotated = false;
+  highlightValid();
 }
 
-/* ========= ROTATE ========= */
-document.getElementById("rotateBtn").onclick=()=>{
-  if(!selectedDomino) return;
-  selectedDomino.style.transform =
-    selectedDomino.style.transform ? "" : "rotate(180deg)";
-  [selectedDomino.dataset.a,selectedDomino.dataset.b]=
-  [selectedDomino.dataset.b,selectedDomino.dataset.a];
+rotateBtn.onclick = () => {
+  if (selected === null) return;
+  rotated = !rotated;
 };
 
-/* ========= DRAW ========= */
-document.getElementById("drawBtn").onclick=()=>{
-  if(currentTurn!=="player"||stock.length===0) return;
+drawBtn.onclick = () => {
+  if (stock.length === 0) return;
   playerHand.push(stock.pop());
-  renderHands();
-  updateValidDomino();
+  render();
+  highlightValid();
 };
 
-/* ========= AI ========= */
-function computerTurn(){
-  statusEl.textContent="Computer’s Turn";
-  setTimeout(()=>{
-    const left=boardChain[0]?.[0];
-    const right=boardChain.at(-1)?.[1];
+function canPlace(domino) {
+  if (chain.length === 0) return true;
+  const left = chain[0][0];
+  const right = chain[chain.length - 1][1];
+  return domino.includes(left) || domino.includes(right);
+}
 
-    let idx=computerHand.findIndex(d=>
-      !boardChain.length || d[0]===left||d[1]===left||d[0]===right||d[1]===right
-    );
+function highlightValid() {
+  [...playerHandEl.children].forEach((el, i) => {
+    el.classList.toggle("valid", canPlace(playerHand[i]));
+  });
+}
 
-    if(idx===-1){
-      if(stock.length){
-        computerHand.push(stock.pop());
-        computerTurn();
-      }
+// ---------- PLACE ----------
+playerHandEl.onclick = () => {
+  if (selected === null) return;
+  const d = playerHand[selected];
+  if (!canPlace(d)) return;
+
+  if (chain.length === 0) {
+    chain.push(rotated ? [d[1], d[0]] : d);
+  } else {
+    const left = chain[0][0];
+    const right = chain[chain.length - 1][1];
+    const [a, b] = rotated ? [d[1], d[0]] : d;
+
+    if (b === left) chain.unshift([a, b]);
+    else if (a === right) chain.push([a, b]);
+    else return;
+  }
+
+  playerHand.splice(selected, 1);
+  selected = null;
+  turn = "computer";
+  render();
+  setTimeout(computerTurn, 800);
+};
+
+// ---------- AI ----------
+function computerTurn() {
+  statusEl.textContent = "Computer's turn";
+
+  for (let i = 0; i < computerHand.length; i++) {
+    if (canPlace(computerHand[i])) {
+      chain.push(computerHand.splice(i, 1)[0]);
+      turn = "player";
+      statusEl.textContent = "Your turn";
+      render();
+      highlightValid();
       return;
     }
+  }
 
-    const dom=computerHand.splice(idx,1)[0];
-    boardChain.push(dom);
-
-    const d=createDomino(dom);
-    placeDomino(d,dom);
-
-    currentTurn="player";
-    statusEl.textContent="Your Turn";
-    renderHands();
-    updateValidDomino();
-  },800);
+  if (stock.length > 0) {
+    computerHand.push(stock.pop());
+    setTimeout(computerTurn, 600);
+  } else {
+    turn = "player";
+    statusEl.textContent = "Your turn";
+  }
 }
 
-/* ========= PLAYER PLACE ========= */
-playerHandEl.onclick=()=>{
-  if(!selectedDomino||!selectedDomino.classList.contains("valid")) return;
-  const a=+selectedDomino.dataset.a;
-  const b=+selectedDomino.dataset.b;
-  boardChain.push([a,b]);
-  placeDomino(selectedDomino,[a,b]);
-  playerHand=playerHand.filter(d=>!(d[0]==a&&d[1]==b));
-  selectedDomino=null;
-  currentTurn="computer";
-  computerTurn();
-};
+init();
